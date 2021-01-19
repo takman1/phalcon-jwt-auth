@@ -40,7 +40,7 @@ class TokenGetter implements AdapterInterface
 		return '';
 	}
 
-	public function hasSessionToken()
+	public function clearSessionToken()
     {
         foreach ($this->getters as $getter) {
             if (!($getter instanceof Session)) {

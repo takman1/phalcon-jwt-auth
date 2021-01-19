@@ -57,9 +57,8 @@ class Auth extends Adapter
 
 		$payload = $this->decode($token, $key);
 		if(!$payload || empty($payload)) {
-            if ($parser->hasSessionToken()) {
-                return true;
-            }
+            $parser->clearSessionToken();
+
 			return false;
 		}
 
