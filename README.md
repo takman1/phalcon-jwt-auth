@@ -1,122 +1,77 @@
 # phalcon-jwt-auth
 
-A simple JWT middleware for Phalcon Micro to handle stateless authentication.
+A simple JWT middleware for Phalcon to handle stateless authentication or session based token.
 
 ## Installation
 ```bash
-$ composer require dmkit/phalcon-jwt-auth
-```
-or in your composer.json
-```json
-{
-    "require": {
-		"dmkit/phalcon-jwt-auth" : "dev-master"
-    }
-}
-
-```
-then run
-```bash
-$ composer update
+$ composer require takman1/phalcon-jwt-auth
 ```
 
 ## Usage
 
-### Configuration - Loading the config service
+### Configuration
+In main config or module config
+```php
+<?php
 
-in config.ini or in any config file
-```ini
-[jwtAuth]
+use Phalcon\Config;
 
-; JWT Secret Key
-secretKey = 923753F2317FC1EE5B52DF23951B
+/** @var Config $config */
+return $config->merge(new Config([
+    'myapi-auth' => [
+        'secretKey' => $_SERVER['API_JWT_SECRET_KEY'], // secretKey comes from .env file (or ENV variables)
+        'session-token-name' => 'myapi-jwt-token', // token name in session
+        'payload' => [
+            'exp' => 10, // in minutes
+            'iss' => 'myapi-jwt-auth'
+        ],
+        'ignoreUri' => [
+            '/',
+            '/api',
+            '/api/login',
+            '/api/logout',
+        ]
+    ]
+]));
 
-; JWT default Payload
-
-;; expiry time in minutes
-payload[exp] = 1440
-payload[iss] = phalcon-jwt-auth
-
-; Micro Applications do not have a controller or dispatcher
-; so to know the resource being called we have to check the actual URL.
-
-; If you want to disable the middleware on certain routes or resource:
-;; index
-ignoreUri[] = /
-
-;; regex pattern with http methods
-ignoreUri[] = regex:/application/
-ignoreUri[] = regex:/users/:POST,PUT
-
-;; literal strings
-ignoreUri[] = /auth/user:POST,PUT
-ignoreUri[] = /auth/application
 ```
+
 
 in bootstrap or index file
 ```php
-use Phalcon\Mvc\Micro;
-use Phalcon\Config\Adapter\Ini as ConfigIni;
-use Phalcon\Di\FactoryDefault;
-use Dmkit\Phalcon\Auth\Middleware\Micro as AuthMicro;
+$di->setShared(
+    'dispatcher',
+    function () use ($di) {
+        /** @var \Phalcon\Events\ManagerInterface $eventsManager */
+        $eventsManager = $di->getShared('eventsManager');
+        $eventsManager->attach(
+            'dispatch:beforeExecuteRoute', //plug the service to this event
+            function (\Phalcon\Events\Event $event, $dispatcher) {
+                return $dispatcher->getDi()
+                    ->getShared('jwtAuth') // service declared bellow
+                    ->beforeExecuteRoute($event, $dispatcher);
+            }
+        );
 
-// set default services
-$di = new FactoryDefault();
+        $dispatcher = new \Phalcon\Mvc\Dispatcher();
+        $dispatcher->setEventsManager($eventsManager);
+        $dispatcher->setDefaultNamespace('App\Api\Controller');
 
-/**
- * IMPORTANT:
- * You must set "config" service that will load the configuration file.
- */
-$config = new ConfigIni( APP_PATH . "app/config/config.ini");
-$di->set(
-    "config",
-    function () use($config) {
-        return $config;
+        return $dispatcher;
     }
 );
 
-$app = new Micro($di);
-
-// AUTH MICRO
-$auth = new AuthMicro($app);
-
-$app->handle();
+$di->setShared('jwtAuth', function () use ($di) {
+    return new \Dmkit\Phalcon\Auth\Middleware\JwtAuthenticator(
+        $di->get('request'),
+        $di->get('response'),
+        $di->get('session'),
+        $di->getConfig(),
+        'myapi-auth' //config key
+    );
+});
 ```
 
-### Configuration - Don't want to use a config file? then pass the config instead
-in bootstrap or index file
-```php
-use Phalcon\Mvc\Micro;
-use Phalcon\Config\Adapter\Ini as ConfigIni;
-use Phalcon\Di\FactoryDefault;
-use Dmkit\Phalcon\Auth\Middleware\Micro as AuthMicro;
-
-// set default services
-$di = new FactoryDefault();
-
-$app = new Micro($di);
-
-// SETUP THE CONFIG
-$authConfig = [
-    'secretKey' => '923753F2317FC1EE5B52DF23951B1',
-    'payload' => [
-            'exp' => 1440,
-            'iss' => 'phalcon-jwt-auth'
-        ],
-     'ignoreUri' => [
-            '/',
-            'regex:/application/',
-            'regex:/users/:POST,PUT',
-            '/auth/user:POST,PUT',
-            '/auth/application'
-        ]
-];
-
-// AUTH MICRO
-$auth = new AuthMicro($app, $authConfig);
-
-$app->handle();
-```
 
 ### Authentication
 To make authenticated requests via http, you will need to set an authorization headers as follows:
@@ -127,20 +82,49 @@ or pass the token as a query string
 ```
 ?_token={yourtokenhere}
 ```
+or set token in session
+```php
+public function myAction()
+{
+    // get token from session
+    $tokenName = $this->config->get('myapi-auth')->get('session-token-name');
+    $tokenValue = $this->session->get($tokenName);
+
+    // set token and its payload in session
+    // array of payload data, to customize 
+    $payload = [
+        'username' => $username,
+        'password' => $password,
+        'role' => 'api-user',
+        'iat' => time(),
+    ];
+    // jwtAuth is the service name
+    $token = $this->jwtAuth->make($payload);
+    $this->session->set($tokenName, $token);
+    
+    // disconnect user by unsetting the token in session
+    $this->session->remove($this->config->get('myapi-auth')->get('session-token-name'));
+    
+    //get payload data
+    // in controller
+    $this->jwtAuth->data(); // all data array
+    $this->jwtAuth->data('username'); // get specific "username" data
+    // in another service
+    \Phalcon\Di::getDefault()->get('jwtAuth')->data();
+}
+```
 
 ### Callbacks
 
 By default if the authentication fails, the middleware will stop the execution of routes and will immediately return a response of 401 Unauthorized. If you want to add your own handler:
 ```php
-$auth->onUnauthorized(function($authMicro, $app) {
+$auth->onUnauthorized(function($auth, $request, $response, $session) {
 
-    $response = $app["response"];
     $response->setStatusCode(401, 'Unauthorized');
     $response->setContentType("application/json");
 
     // to get the error messages
-    $response->setContent(json_encode([$authMicro->getMessages()[0]]));
-    $response->send();
+    $response->setContent(json_encode([$auth->getMessages()[0] ?? '']));
 
     // return false to stop the execution
     return false;
@@ -150,13 +134,13 @@ $auth->onUnauthorized(function($authMicro, $app) {
 If you want an additional checking on the authentication, like intentionally expiring a token based on the payload issued date, you may do so:
 ```php
 $auth->onCheck(function($auth) {
- // to get the payload
- $data = $auth->data();
-
- if($data['iat'] <= strtotime('-1 day')) ) {
-    // return false to invalidate the authentication
-    return false;
- }
+    // to get the payload
+    $data = $auth->data();
+    
+    if ($data['iat'] <= strtotime('-1 day')) {
+        // return false to invalidate the authentication
+        return false;
+    }
 
 });
 ```
@@ -165,30 +149,12 @@ $auth->onCheck(function($auth) {
 
 You can access the middleware by calling the "auth" service.
 ```php
-print_r( $app['auth']->data() );
+print_r($di->get('auth')->data());
 
-print_r( $app->getDI()->get('auth')->data('email') );
+print_r($app->getDI()->get('auth')->data('email'));
 
-// in your contoller
-print_r( $this->auth->data() );
-```
-If you want to change the service name:
-```php
-AuthMicro::$diName = 'jwtAuth';
-```
-
-### Creating a token
-
-In your controller or route handler
-```php
-$payload = [
-    'sub'   => $user->id,
-    'email' => $user->email,
-    'username' =>  $user->username,
-    'role'  => 'admin',
-    'iat' => time(),
-];
-$token = $this->auth->make($payload);
+// in your controller
+print_r($this->auth->data());
 ```
 
 ### Accessing the authenticated user / data
@@ -201,29 +167,5 @@ echo $this->auth->data(); // return all payload
 echo $this->auth->data('email');
 ```
 
-
-### Extending
-If you want to add your own middleware or play around:
-```php
-Dmkit\Phalcon\Auth\Auth.php and its adapters - does all the authentication
-
-Dmkit\Phalcon\Auth\TokenGetter\TokenGetter.php and its adapters - does the parsing or getting of token
-```
-
-### JWT
-Phalcon JWT Auth uses the Firebase JWT library. To learn more about it and JSON Web Tokens in general, visit: https://github.com/firebase/php-jwt
-https://jwt.io/introduction/
-
-### Tests
-Install PHPUnit https://phpunit.de/getting-started.html
-```php
-$ phpunit --configuration phpunit.xml.dist
-PHPUnit 5.6.5 by Sebastian Bergmann and contributors.
-
-......["missing token"].["members option"].["members put"].["members put"].["Expired token"].["members post"]....                                                   15 / 15 (100%)
-
-Time: 73 ms, Memory: 10.00MB
-
-OK (15 tests, 27 assertions)
-
-```
+### Original project
+This project is forked and based on dmkit/phalcon-jwt-auth : https://github.com/dmkit/phalcon-jwt-auth

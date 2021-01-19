@@ -3,6 +3,7 @@
 namespace Dmkit\Phalcon\Auth\TokenGetter;
 
 use Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface;
+use Dmkit\Phalcon\Auth\TokenGetter\Handler\Session;
 
 /**
  * Dmkit\Phalcon\Auth\TokenGetter\TokenGetter.
@@ -38,4 +39,18 @@ class TokenGetter implements AdapterInterface
 		}
 		return '';
 	}
+
+	public function hasSessionToken()
+    {
+        foreach ($this->getters as $getter) {
+            if (!($getter instanceof Session)) {
+                continue;
+            }
+            if ($getter->hasToken()) {
+                $getter->removeToken();
+                return true;
+            }
+            return false;
+        }
+    }
 }

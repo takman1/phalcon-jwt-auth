@@ -3,7 +3,6 @@
 namespace Dmkit\Phalcon\Auth;
 
 use Firebase\JWT\JWT;
-use Dmkit\Phalcon\Auth\Adapter;
 use Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface as TokenGetter;
 
 /**
@@ -58,6 +57,9 @@ class Auth extends Adapter
 
 		$payload = $this->decode($token, $key);
 		if(!$payload || empty($payload)) {
+            if ($parser->hasSessionToken()) {
+                return true;
+            }
 			return false;
 		}
 

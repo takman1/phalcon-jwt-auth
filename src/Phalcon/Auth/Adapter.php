@@ -129,16 +129,14 @@ abstract class Adapter implements AdapterInterface
 		return $this->payload['sub'] ?? $this->payload['id'] ?? NULL;
 	}
 
-	/**
+    /**
      * Returns payload or value of payload key.
      *
-     * @param array $payload
-     * @param string $key
-     *
-     * @return array|string
+     * @param string $field
+     * @return array|string|null
      */
-	public function data($field=NULL)
+	public function data(string $field = '')
 	{
-		return ( !$field ?  $this->payload : $this->payload[$field] );
+		return ( !$field ?  $this->payload : ($this->payload[$field] ?? null) );
 	}
 }
