@@ -2,9 +2,7 @@
 
 namespace Dmkit\Phalcon\Auth;
 
-use Dmkit\Phalcon\Auth\AdapterInterface;
 use Firebase\JWT\JWT;
-use Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface as TokenGetter;
 
 /**
  * Dmkit\Phalcon\Auth\Adapter.
@@ -71,9 +69,7 @@ abstract class Adapter implements AdapterInterface
 				JWT::$leeway = $this->leeway;
 			}
 
-			$payload = (array) JWT::decode($token, $key, [$this->algo]);
-
-			return $payload;
+			return (array) JWT::decode($token, $key, [$this->algo]);
 
 		} catch(\Exception $e) {
 			$this->appendMessage($e->getMessage());
