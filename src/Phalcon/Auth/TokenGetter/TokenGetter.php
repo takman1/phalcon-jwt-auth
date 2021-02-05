@@ -2,7 +2,6 @@
 
 namespace Dmkit\Phalcon\Auth\TokenGetter;
 
-use Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface;
 use Dmkit\Phalcon\Auth\TokenGetter\Handler\Session;
 
 /**
@@ -40,7 +39,7 @@ class TokenGetter implements AdapterInterface
 		return '';
 	}
 
-	public function clearSessionToken()
+	public function clearSessionToken(): bool
     {
         foreach ($this->getters as $getter) {
             if (!($getter instanceof Session)) {

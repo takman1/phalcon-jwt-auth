@@ -2,8 +2,6 @@
 
 namespace Dmkit\Phalcon\Auth\TokenGetter\Handler;
 
-use Dmkit\Phalcon\Auth\TokenGetter\Handler\Adapter;
-
 /**
  * Dmkit\Phalcon\Auth\TokenGetter\Handle\Header.
  */

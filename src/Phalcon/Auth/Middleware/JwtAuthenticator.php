@@ -139,29 +139,18 @@ class JwtAuthenticator
 
     /**
      * Sets event authentication.
-     * @return bool
      * @throws JsonException
      */
-    public function beforeExecuteRoute()
+    public function beforeExecuteRoute(): bool
     {
         // check if it has CORS support
-        if ($this->isIgnoreOptionsMethod() &&  'OPTIONS' === $this->request->getMethod()) {
+        if ($this->isIgnoreOptionsMethod() && 'OPTIONS' === $this->request->getMethod()) {
             return true;
         }
 
-        if ($this->isIgnoreUri()) {
-            /**
-             * Let's try to parse if there's a token
-             * but we don't want to get an invalid token
-             */
-            if (!$this->check() && 'missing token' !== ($this->getMessages()[0] ?? '')) {
-                return $this->unauthorized();
-            }
-
-            return true;
-        }
-
-        if ($this->check()) {
+        $check = $this->check();
+        $message = $this->getMessages()[0] ?? '';
+        if ($this->isIgnoreUri() && ($check || 'missing token' === $message) || $check) {
             return true;
         }
 
@@ -245,9 +234,10 @@ class JwtAuthenticator
      */
 	public function make(array $data)
 	{
-		$payload = array_merge($this->payload, $data);
-
-		return $this->auth->make($payload, $this->secretKey);
+		return $this->auth->make(
+            array_merge($this->payload, $data),
+            $this->secretKey
+        );
 	}
 
 	/**
@@ -281,17 +271,20 @@ class JwtAuthenticator
 			return call_user_func($this->_onUnauthorized, $this, $this->request, $this->response, $this->session);
 		}
 
-		$response = $this->response;
-		$response->setStatusCode(401, 'Unauthorized');
-		$response->setContentType("application/json");
-		$response->setContent(json_encode([$this->getMessages()[0] ?? ''], JSON_THROW_ON_ERROR));
+        $this->response
+            ->setStatusCode(401, 'Unauthorized')
+            ->setContentType("application/json")
+            ->setContent(json_encode([$this->getMessages()[0] ?? ''], JSON_THROW_ON_ERROR));
 
 		// CORS
 		if ($this->isIgnoreOptionsMethod()) {
-	    	$response->setHeader("Access-Control-Allow-Origin", '*')
-		      ->setHeader("Access-Control-Allow-Methods", 'GET,PUT,POST,DELETE,OPTIONS')
-		      ->setHeader("Access-Control-Allow-Headers", 'Origin, X-Requested-With, Content-Range, Content-Disposition, Content-Type, Authorization')
-		      ->setHeader("Access-Control-Allow-Credentials", true);
+	    	$this->response
+                ->setHeader("Access-Control-Allow-Origin", '*')
+                ->setHeader("Access-Control-Allow-Methods", 'GET,PUT,POST,DELETE,OPTIONS')
+                ->setHeader(
+                    "Access-Control-Allow-Headers",
+                    'Origin, X-Requested-With, Content-Range, Content-Disposition, Content-Type, Authorization'
+                )->setHeader("Access-Control-Allow-Credentials", true);
 		}
 
 		return false;

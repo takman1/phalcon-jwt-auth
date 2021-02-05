@@ -3,15 +3,16 @@
 use Phalcon\Mvc\Micro;
 use Phalcon\Di\FactoryDefault;
 use Dmkit\Phalcon\Auth\Middleware\Micro as AuthMicro;
-use Phalcon\Http\RequestInterface;
-use Phalcon\Events\Event;
-use Phalcon\Events\Manager as EventsManager;
 use Firebase\JWT\JWT;
 
 use PHPUnit\Framework\TestCase;
 
 class MiddlewareMicroTest extends TestCase
 {
+    const CONTENT_TYPE_JSON = 'application/json';
+    const URL_MEMBERS = '/members';
+    const GET_TOKEN_KEY = '_token';
+
 	protected $app;
 	protected $middleware;
 	protected $config;
@@ -47,39 +48,39 @@ class MiddlewareMicroTest extends TestCase
 		$this->app->get('/', function() use($app) {
 			$response = $app["response"];
 			$response->setStatusCode(200);
-			$response->setContentType("application/json");
+			$response->setContentType(self::CONTENT_TYPE_JSON);
 			$response->setContent(json_encode(['index get']));
 			$response->send();
 		});
 
-		$this->app->get('/members', function() use($app) {
+		$this->app->get(self::URL_MEMBERS, function() use($app) {
 			$response = $app["response"];
 			$response->setStatusCode(200);
-			$response->setContentType("application/json");
+			$response->setContentType(self::CONTENT_TYPE_JSON);
 			$response->setContent(json_encode(['members get']));
 			$response->send();
 		});
 
-		$this->app->post('/members', function() use($app) {
+		$this->app->post(self::URL_MEMBERS, function() use($app) {
 			$response = $app["response"];
 			$response->setStatusCode(200);
-			$response->setContentType("application/json");
+			$response->setContentType(self::CONTENT_TYPE_JSON);
 			$response->setContent(json_encode(['members post']));
 			$response->send();
 		});
 
-		$this->app->put('/members', function() use($app) {
+		$this->app->put(self::URL_MEMBERS, function() use($app) {
 			$response = $app["response"];
 			$response->setStatusCode(200);
-			$response->setContentType("application/json");
+			$response->setContentType(self::CONTENT_TYPE_JSON);
 			$response->setContent(json_encode(['members put']));
 			$response->send();
 		});
 
-		$this->app->options('/members', function() use($app) {
+		$this->app->options(self::URL_MEMBERS, function() use($app) {
 			$response = $app["response"];
 			$response->setStatusCode(204);
-			$response->setContentType("application/json");
+			$response->setContentType(self::CONTENT_TYPE_JSON);
 			$response->setContent(json_encode(['members option']));
 			$response->send();
 		});
@@ -89,10 +90,10 @@ class MiddlewareMicroTest extends TestCase
 	public function testLookForTokenFail()
 	{
 		//  override for testing
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(401,  $this->app['response']->getStatusCode());
 		$this->assertEquals('["missing token"]',  $this->app['response']->getContent());
@@ -101,24 +102,24 @@ class MiddlewareMicroTest extends TestCase
 	public function testIgnoreOptionMethod()
 	{
 		//  override for testing
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 		$_SERVER["REQUEST_METHOD"] = "OPTIONS";
 
 		$this->middleware->setIgnoreOptionsMethod();
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(204,  $this->app['response']->getStatusCode());
 	}
 
 	public function testIgnoreUri()
 	{
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 		$_SERVER["REQUEST_METHOD"] = "PUT";
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(200,  $this->app['response']->getStatusCode());
 		$this->assertEquals('["members put"]',  $this->app['response']->getContent());
@@ -126,17 +127,17 @@ class MiddlewareMicroTest extends TestCase
 
 	public function testIgnoreUriWithToken()
 	{
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 		$_SERVER["REQUEST_METHOD"] = "PUT";
 
 		$payload = $this->config['payload'];
 
 		$jwt = JWT::encode($payload, $this->config['secretKey']);
 
-		$_GET['_token'] = $jwt;
+		$_GET[self::GET_TOKEN_KEY] = $jwt;
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(200,  $this->app['response']->getStatusCode());
 		$this->assertEquals('["members put"]',  $this->app['response']->getContent());
@@ -145,7 +146,7 @@ class MiddlewareMicroTest extends TestCase
 
 	public function testPassedExpiredToken()
 	{
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 		$_SERVER["REQUEST_METHOD"] = "POST";
 
 		$payload = $this->config['payload'];
@@ -153,10 +154,10 @@ class MiddlewareMicroTest extends TestCase
 		$payload['exp'] = -20;
 		$jwt = JWT::encode($payload, $this->config['secretKey']);
 
-		$_GET['_token'] = $jwt;
+		$_GET[self::GET_TOKEN_KEY] = $jwt;
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(401,  $this->app['response']->getStatusCode());
 		$this->assertEquals('["Expired token"]',  $this->app['response']->getContent());
@@ -164,17 +165,17 @@ class MiddlewareMicroTest extends TestCase
 
 	public function testPasssedValidToken()
 	{
-		$_SERVER['REQUEST_URI'] = '/members';
+		$_SERVER['REQUEST_URI'] = self::URL_MEMBERS;
 		$_SERVER["REQUEST_METHOD"] = "POST";
 
 		$payload = $this->config['payload'];
 		// let's expired the token
 		$jwt = JWT::encode($payload, $this->config['secretKey']);
 
-		$_GET['_token'] = $jwt;
+		$_GET[self::GET_TOKEN_KEY] = $jwt;
 
 		// call this on test methods instead
-		$this->app->handle('/members');
+		$this->app->handle(self::URL_MEMBERS);
 
 		$this->assertEquals(200,  $this->app['response']->getStatusCode());
 		$this->assertEquals('["members post"]',  $this->app['response']->getContent());

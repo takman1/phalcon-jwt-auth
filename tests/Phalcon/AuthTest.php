@@ -58,19 +58,19 @@ class AuthTest extends TestCase
 		$query = new QueryStr($response);
 		$header = new Header($response);
 
-		$parser = new TokenGetter($header, $query);
+		$tokenGetter = new TokenGetter($header, $query);
 
 		$auth = new Auth;
 
-		$this->assertTrue($auth->check($parser, $this->secretKey));
+		$this->assertTrue($auth->check($tokenGetter, $this->secretKey));
 
 		$this->assertEquals(123, $auth->id());
 
-		$options = $this->options;
-		$options['exp'] = strtotime('+2 hours');
+		$payload = $this->options;
+        $payload['exp'] = strtotime('+2 hours');
 
-		$this->assertEquals($options, $auth->data());
-		$this->assertEquals($options['sub'], $auth->data('sub'));
+		$this->assertEquals($payload, $auth->data());
+		$this->assertEquals($payload['sub'], $auth->data('sub'));
 	}
 
 	public function testCheckCallback()
