@@ -8,14 +8,14 @@ namespace Dmkit\Phalcon\Auth\TokenGetter\Handler;
 class QueryStr extends Adapter
 {
     // Query string key
-    protected $key='_token';
+    protected $key = '_token';
 
     /**
      * Gets the token from the query strings
      *
      * @return string
      */
-    public function parse() : string
+    public function parse(): string
     {
         return trim(($this->_Request->getQuery($this->key) ?? ''));
     }

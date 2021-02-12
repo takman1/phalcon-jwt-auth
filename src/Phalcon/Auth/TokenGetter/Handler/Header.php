@@ -8,10 +8,10 @@ namespace Dmkit\Phalcon\Auth\TokenGetter\Handler;
 class Header extends Adapter
 {
 	// header key
-	protected $key='Authorization';
+	protected $key = 'Authorization';
 
 	// header value prefix
-	protected $prefix='Bearer';
+	protected $prefix = 'Bearer';
 	
 
 	/**
@@ -19,20 +19,20 @@ class Header extends Adapter
      *
      * @return string
      */
-	public function parse() : string
+	public function parse(): string
 	{
 		$raw_token = $this->_Request->getHeader($this->key);
 
-		if(!$raw_token) {
+		if (!$raw_token) {
 			return '';
 		}
 
-		return trim( str_ireplace($this->prefix, '', $raw_token));
+		return trim(str_ireplace($this->prefix, '', $raw_token));
 	}
 
-	/**
+    /**
      * Sets the header value prefix
-     *
+     * @param string $prefix
      */
 	public function  setPrefix(string $prefix)
 	{

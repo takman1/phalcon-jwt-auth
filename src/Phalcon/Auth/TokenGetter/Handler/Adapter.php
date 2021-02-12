@@ -17,19 +17,19 @@ abstract class Adapter implements AdapterInterface
 	// key for fetching JWT
 	protected $key;
 
-	/**
+    /**
      * Sets request object.
      *
-     * @param Phalcon\Http\RequestInterface $request
+     * @param RequestInterface $request
      */
 	public function __construct(RequestInterface $request)
 	{
 		$this->_Request = $request;
 	}
 
-	/**
+    /**
      * Sets the key for fetching
-     *
+     * @param string $key
      */
 	public function setKey(string $key)
 	{

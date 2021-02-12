@@ -93,18 +93,18 @@ class JwtAuthenticator
 		 */
 
 		self::$configSection = $configSection ?: self::$configSection;
-		if(!$config->get(self::$configSection)) {
+		if (!$config->get(self::$configSection)) {
 			throw new InvalidArgumentException('missing DI config jwtAuth and config param');
 		}
 
 		$jwtConfig = $config->get(self::$configSection)->toArray();
 
         // secret key is required
-        if(!isset($jwtConfig['secretKey'])) {
+        if (!isset($jwtConfig['secretKey'])) {
             throw new InvalidArgumentException('missing jwt secret key');
         }
 
-		if(!empty($jwtConfig['ignoreUri'])) {
+		if (!empty($jwtConfig['ignoreUri'])) {
 			$this->ignoreUri = $jwtConfig['ignoreUri'];
 		}
 
@@ -179,7 +179,10 @@ class JwtAuthenticator
                 ? [$uri, false]
                 : explode(':', $uri )
             );
-			$methods = ( !$methods || empty($methods) ? false : explode(',', $methods) );
+			$methods = (!$methods || empty($methods)
+                ? false
+                : explode(',', $methods)
+            );
 
 			$match = ('str' === $type
                 ? ($requestUri === $pattern)
@@ -200,7 +203,7 @@ class JwtAuthenticator
      */
 	public function isIgnoreUri()
 	{
-		if(!$this->ignoreUri) {
+		if (!$this->ignoreUri) {
 			return false;
 		}
 
