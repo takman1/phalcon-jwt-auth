@@ -24,5 +24,8 @@
     },
     "autoload": {
         "psr-4": { "Dmkit\\Phalcon\\Auth\\": "src/Phalcon/Auth/" }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^5.0"
     }
 }

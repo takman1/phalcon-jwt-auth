@@ -1,10 +1,12 @@
 <?php
 
 use Dmkit\Phalcon\Auth\Auth;
+use Dmkit\Phalcon\Auth\TokenGetter\Handler\Session;
 use Dmkit\Phalcon\Auth\TokenGetter\TokenGetter;
 use Dmkit\Phalcon\Auth\TokenGetter\Handler\Header;
 use Dmkit\Phalcon\Auth\TokenGetter\Handler\QueryStr;
 use Phalcon\Http\RequestInterface;
+use Phalcon\Session\AdapterInterface;
 use PHPUnit\Framework\TestCase;
 use Firebase\JWT\JWT;
 
@@ -15,12 +17,14 @@ class AuthTest extends TestCase
 	protected $jwt;
 
 	protected $secretKey;
+	protected $jwtSessionTokenName;
 
 	protected $options;
 
 	protected function setUp()
 	{
 		$this->secretKey = 'secret key';
+		$this->jwtSessionTokenName = 'jwt-session-name';
 
 		$this->options = [
 				'sub' => 123,
@@ -49,16 +53,39 @@ class AuthTest extends TestCase
 		$this->assertEquals(NULL, $auth->id());
 	}
 
-	public function testCheckSuccess()
+	public function testQueryStringSuccess()
 	{
 		$response = $this->createMock(RequestInterface::class);
 		$response->method('getQuery')->willReturn($this->jwt);
-		$response->method('getHeader')->willReturn('');
 
 		$query = new QueryStr($response);
-		$header = new Header($response);
 
-		$tokenGetter = new TokenGetter($header, $query);
+		$tokenGetter = new TokenGetter($query);
+
+		$auth = new Auth;
+		$auth->setAlgo('HS256');
+        $auth->setLeeway(1);
+
+		$this->assertTrue($auth->check($tokenGetter, $this->secretKey));
+
+		$this->assertEquals(123, $auth->id());
+
+		$payload = $this->options;
+        $payload['exp'] = strtotime('+2 hours');
+
+		$this->assertEquals($payload, $auth->data());
+		$this->assertEquals($payload['sub'], $auth->data('sub'));
+	}
+
+	public function testHeaderSuccess()
+	{
+		$response = $this->createMock(RequestInterface::class);
+		$response->method('getHeader')->willReturn('Bearer ' . $this->jwt);
+
+		$header = new Header($response);
+		$header->setPrefix('Bearer');
+
+		$tokenGetter = new TokenGetter($header);
 
 		$auth = new Auth;
 
@@ -71,6 +98,70 @@ class AuthTest extends TestCase
 
 		$this->assertEquals($payload, $auth->data());
 		$this->assertEquals($payload['sub'], $auth->data('sub'));
+	}
+
+	public function testSessionSuccess()
+	{
+		$session = $this->createMock(AdapterInterface::class);
+		$session->method('has')->willReturn(true);
+        $session->method('get')->willReturn($this->jwt);
+
+		$session = new Session($session, $this->jwtSessionTokenName);
+
+		$tokenGetter = new TokenGetter($session);
+
+		$auth = new Auth;
+		$auth->setAlgo('HS256');
+        $auth->setLeeway(1);
+
+		$this->assertTrue($auth->check($tokenGetter, $this->secretKey));
+
+		$this->assertEquals(123, $auth->id());
+
+		$payload = $this->options;
+        $payload['exp'] = strtotime('+2 hours');
+
+		$this->assertEquals($payload, $auth->data());
+		$this->assertEquals($payload['sub'], $auth->data('sub'));
+	}
+
+	public function testSessionInvalidToken()
+	{
+		$session = $this->createMock(AdapterInterface::class);
+		$session->method('has')->willReturn(true);
+        $session->method('get')->willReturn($this->jwt . '1');
+
+		$session = new Session($session, $this->jwtSessionTokenName);
+
+		$tokenGetter = new TokenGetter($session);
+
+		$auth = new Auth;
+
+		$this->assertFalse($auth->check($tokenGetter, $this->secretKey));
+
+		$this->assertNull($auth->id());
+	}
+
+	public function testEmptyToken()
+	{
+		$response = $this->createMock(RequestInterface::class);
+		$session = $this->createMock(AdapterInterface::class);
+		$response->method('getQuery')->willReturn('');
+		$response->method('getHeader')->willReturn('');
+        $session->method('has')->willReturn(false);
+        $session->method('get')->willReturn(null);
+
+		$query = new QueryStr($response);
+		$header = new Header($response);
+		$session = new Session($session, $this->jwtSessionTokenName);
+
+		$tokenGetter = new TokenGetter($header, $query, $session);
+
+		$auth = new Auth;
+
+		$this->assertFalse($auth->check($tokenGetter, $this->secretKey));
+		$this->assertCount(1, $auth->getMessages());
+		$this->assertEquals('missing token', $auth->getMessages()[0]);
 	}
 
 	public function testCheckCallback()
@@ -109,12 +200,14 @@ class AuthTest extends TestCase
 		// let's expired the jwt
 		$response = $this->createMock(RequestInterface::class);
 		$response->method('getQuery')->willReturn($this->jwt);
+        $adapter = new QueryStr($response);
+        $adapter->setKey('_token');
 
 		$auth = new Auth;
 
 		JWT::$timestamp = strtotime('+1 week');
 
-		$this->assertTrue( !$auth->check(new QueryStr($response), $this->secretKey) );
+		$this->assertTrue( !$auth->check(new TokenGetter($adapter), $this->secretKey) );
 
 		$expected_errors = ['Expired token'];
 
