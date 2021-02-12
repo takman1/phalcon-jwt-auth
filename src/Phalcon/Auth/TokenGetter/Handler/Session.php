@@ -2,20 +2,19 @@
 
 namespace Dmkit\Phalcon\Auth\TokenGetter\Handler;
 
-use Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface;
-use Phalcon\Session\Adapter as SessionAdapter;
+use Phalcon\Session\AdapterInterface as SessionAdapterInterface;
 
 /**
  * Dmkit\Phalcon\Auth\TokenGetter\Handle\Header.
  */
-class Session implements AdapterInterface
+class Session extends Adapter
 {
 	// session key
-	private $key='jwt-token';
+	protected $key = 'jwt-token';
 
 	private $session;
 
-	public function __construct(SessionAdapter $session, ?string $key = null)
+	public function __construct(SessionAdapterInterface $session, ?string $key = null)
     {
         $this->session = $session;
         $this->key = $key ?? $this->key;
@@ -26,7 +25,7 @@ class Session implements AdapterInterface
      *
      * @return string
      */
-	public function parse() : string
+	public function parse(): string
 	{
 	    if (!$this->session->has($this->key)) {
 	        return '';

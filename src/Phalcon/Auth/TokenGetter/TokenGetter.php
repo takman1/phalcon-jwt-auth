@@ -15,7 +15,7 @@ class TokenGetter implements AdapterInterface
 	/**
      * Sets getters.
      *
-     * @param Dmkit\Phalcon\Auth\TokenGetter\AdapterInterface $getters
+     * @param AdapterInterface[] $getters
      */
 	public function __construct(AdapterInterface ...$getters)
 	{
@@ -27,15 +27,15 @@ class TokenGetter implements AdapterInterface
      *
      * @return string
      */
-	public function parse() : string
+	public function parse(): string
 	{
-		foreach($this->getters as $getter) 
-		{
+		foreach ($this->getters as $getter) {
 			$token = $getter->parse();
-			if($token) {
+			if ($token) {
 				return $token;
 			}
 		}
+
 		return '';
 	}
 
@@ -47,9 +47,11 @@ class TokenGetter implements AdapterInterface
             }
             if ($getter->hasToken()) {
                 $getter->removeToken();
+
                 return true;
             }
-            return false;
         }
+
+        return false;
     }
 }

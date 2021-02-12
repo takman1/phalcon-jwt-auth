@@ -2,7 +2,10 @@
 
 namespace Dmkit\Phalcon\Auth;
 
+use Exception;
 use Firebase\JWT\JWT;
+
+use function time;
 
 /**
  * Dmkit\Phalcon\Auth\Adapter.
@@ -43,12 +46,11 @@ abstract class Adapter implements AdapterInterface
 		$this->leeway = $this->minToSec($mins);
 	}
 
-	/**
+    /**
      * Sets algorith for hashing JWT.
      * See available Algos on JWT::$supported_algs
      *
-     * @param int $mins
-     *
+     * @param string $alg
      */
 	public function setAlgo(string $alg) {
 		$this->algo = $alg;
@@ -62,19 +64,19 @@ abstract class Adapter implements AdapterInterface
      *
      * @return array
      */
-	protected function decode($token, $key)
+	protected function decode(string $token, string $key): array
 	{
 		try {
-			if($this->leeway) {
+			if ($this->leeway) {
 				JWT::$leeway = $this->leeway;
 			}
 
 			return (array) JWT::decode($token, $key, [$this->algo]);
 
-		} catch(\Exception $e) {
+		} catch(Exception $e) {
 			$this->appendMessage($e->getMessage());
-			return false;
 
+			return [];
 		}
 	}
 
@@ -86,11 +88,12 @@ abstract class Adapter implements AdapterInterface
      *
      * @return string
      */
-	protected function encode($payload, $key)
+	protected function encode(array $payload, string $key)
 	{
-		if( isset($payload['exp']) ) {
+		if (isset($payload['exp'])) {
 			$payload['exp'] = time() + $this->minToSec($payload['exp']);
 		}
+
 		return JWT::encode($payload, $key, $this->algo);
 	}
 
@@ -133,6 +136,8 @@ abstract class Adapter implements AdapterInterface
      */
 	public function data(string $field = '')
 	{
-		return ( !$field ?  $this->payload : ($this->payload[$field] ?? null) );
+		return !$field
+            ? $this->payload
+            : ($this->payload[$field] ?? null);
 	}
 }
